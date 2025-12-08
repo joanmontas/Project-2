@@ -52,3 +52,15 @@
 .navbar-btn:hover {
   background-color: #52b788;
 }
+
+.navbar-link {
+  color: #2d6a4f;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.navbar-link:hover {
+  color: #52b788;
+}

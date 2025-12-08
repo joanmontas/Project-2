@@ -1,65 +1,81 @@
-import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-// NEW: Import GoogleAuthProvider and signInWithPopup
-import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { Link, useNavigate } from 'react-router-dom';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
-
 import Button from '../other/Button';
 import Navbar from '../Navbar';
-
 import './Auth.css';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    // Clear previous errors
+    setError('');
+
+    // Validation
     if (!email || !password) {
-      alert("Please enter your email and password.");
+      setError('Email and password are required');
       return;
     }
 
+    setLoading(true);
+
     try {
+      // Sign in with Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         password
       );
-      console.log('User logged in:', userCredential.user);
-      navigate("/home");
-    } catch (error) {
-      console.error('Error logging in:', error.message);
 
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        alert('Invalid email or password.');
-      } else {
-        alert(`Error: ${error.message}`);
-      }
-    }
-  };
+      const user = userCredential.user;
+      console.log('✅ Login successful:', user.uid);
+      console.log('User email:', user.email);
 
-  // NEW: Handler for Google Sign-In
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      console.log('User signed in with Google:', result.user);
+      // Navigate to home page
       navigate('/home');
+
     } catch (error) {
-      console.error('Error with Google sign-in:', error.message);
-      alert(`Google Sign-In Error: ${error.message}`);
+      console.error('❌ Login error:', error);
+
+      // Handle specific Firebase errors
+      if (error.code === 'auth/invalid-credential') {
+        setError('Invalid email or password');
+      } else if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email');
+      } else if (error.code === 'auth/wrong-password') {
+        setError('Incorrect password');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Invalid email address');
+      } else if (error.code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Please try again later.');
+      } else {
+        setError('Login failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <>
-      <Navbar isLoggedIn={false} />
+      <Navbar isLoggedIn={auth.currentUser === null} />
       <div className="auth-container">
         <div className="auth-card">
           <h2>Login</h2>
-          <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
-            
+
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={(e) => e.preventDefault()}>
             <div className="form-group">
               <label htmlFor="email">Email</label>
               <input
@@ -85,24 +101,11 @@ function Login() {
             </div>
 
             <Button 
-              text="Login" 
+              text={loading ? "Logging in..." : "Login"}
               onClick={handleLogin}
               type="primary"
-              buttonType="submit"
             />
           </form>
-
-          {/* --- NEW SECTION --- */}
-          <div className="auth-divider">
-            <span>OR</span>
-          </div>
-
-          <Button 
-            text="Sign in with Google" 
-            onClick={handleGoogleLogin}
-            type="secondary" 
-          />
-          {/* --- END NEW SECTION --- */}
 
           <p className="auth-footer">
             Don't have an account? <Link to="/register">Register here</Link>

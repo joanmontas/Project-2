@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { auth, db } from '../firebase';
+
 import Button from './other/Button';
 import './SearchPanel.css';
 
@@ -8,14 +11,51 @@ function SearchPanel({ isOpen, onClose, onUploadSelected }) {
     const [selectedBibs, setSelectedBibs] = useState([]);
 
     // Dummy data for now (later this will come from backend)
-    const dummyBibs = [
-        { id: 1, title: 'Introduction to Machine Learning', author: 'John Doe', year: 2020 },
-        { id: 2, title: 'Deep Learning Fundamentals', author: 'Jane Smith', year: 2021 },
-        { id: 3, title: 'Neural Networks and AI', author: 'Mike Johnson', year: 2019 },
-        { id: 4, title: 'Data Science Basics', author: 'Sarah Williams', year: 2022 },
-        { id: 5, title: 'Machine Learning Algorithms', author: 'David Brown', year: 2023 },
-        { id: 6, title: 'Artificial Intelligence Ethics', author: 'Emily Davis', year: 2021 },
-    ];
+    const [allBibs, setAllBibs] = useState([]); // Store all user's bibliographies
+    const [loading, setLoading] = useState(false);
+
+    // Load bibliographies from Firestore when panel opens
+    useEffect(() => {
+        if (isOpen) {
+            loadBibliographies();
+        }
+    }, [isOpen]);
+
+    const loadBibliographies = async () => {
+        const user = auth.currentUser;
+
+        if (!user) {
+            console.log(' No user logged in');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            console.log(' Loading bibliographies from Firestore...');
+
+            const querySnapshot = await getDocs(
+                collection(db, `users/${user.uid}/bibliographies`)
+            );
+
+            const bibs = [];
+            querySnapshot.forEach((doc) => {
+                bibs.push({
+                    id: doc.id, // Use Firestore document ID
+                    firestoreId: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            setAllBibs(bibs);
+            console.log(` Loaded ${bibs.length} bibliographies`);
+
+        } catch (error) {
+            console.error(' Error loading bibliographies:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Live search - runs whenever searchQuery changes
     useEffect(() => {
@@ -25,16 +65,16 @@ function SearchPanel({ isOpen, onClose, onUploadSelected }) {
                 return;
             }
 
-            const results = dummyBibs.filter(bib =>
-                bib.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                bib.author.toLowerCase().includes(searchQuery.toLowerCase())
+            const results = allBibs.filter(bib =>
+                bib.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                bib.author?.toLowerCase().includes(searchQuery.toLowerCase())
             );
 
             setSearchResults(results);
         }, 300);
 
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, allBibs]); // Add allBibs to dependencies
 
     const handleCheckboxChange = (bibId) => {
         setSelectedBibs(prev => {
@@ -48,7 +88,15 @@ function SearchPanel({ isOpen, onClose, onUploadSelected }) {
 
     const handleUpload = () => {
         const selected = searchResults.filter(bib => selectedBibs.includes(bib.id));
-        console.log('Uploading selected bibs:', selected);
+
+        console.log('=== SELECTED BIBTEX ENTRIES ===');
+        console.log('Count:', selected.length);
+        selected.forEach((bib, index) => {
+            console.log(`\n[${index + 1}] ${bib.type.toUpperCase()}: ${bib.citationKey}`);
+            console.log('Full data:', bib);
+        });
+        console.log('================================');
+
         onUploadSelected(selected);
 
         // Reset and close
@@ -127,10 +175,18 @@ function SearchPanel({ isOpen, onClose, onUploadSelected }) {
                         </div>
                     )}
 
-                    {/* Empty state - show when no search query */}
-                    {!searchQuery && (
+                    {!searchQuery && !loading && (
                         <div className="empty-state">
                             <p>Start typing to search your BibTeX database...</p>
+                            <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
+                                {allBibs.length} entries in your library
+                            </p>
+                        </div>
+                    )}
+
+                    {loading && (
+                        <div className="empty-state">
+                            <p>Loading your bibliographies...</p>
                         </div>
                     )}
 

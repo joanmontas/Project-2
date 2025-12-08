@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import Button from './other/Button';
 import SearchPanel from './SearchPanel';
 import Navbar from './Navbar';
-
+import { auth, db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import './Home.css';
+import * as bibtexParse from '@orcid/bibtex-parse-js';
 
 function Home() {
   const [selectedFormat, setSelectedFormat] = useState('MLA');
@@ -15,13 +17,94 @@ function Home() {
 
   const formats = ['MLA', 'APA', 'Chicago', 'Harvard', 'Vancouver'];
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    if (file && file.type === 'text/plain') {
+
+    if (!file) return;
+
+    // Check file extension
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.bib') && !fileName.endsWith('.txt')) {
+      alert('Please upload a .bib or .txt file');
+      return;
+    }
+
+    // Get current user
+    const user = auth.currentUser;
+    if (!user) {
+      alert('Please login to upload bibliographies');
+      return;
+    }
+
+    try {
+      console.log('📖 Reading file:', file.name);
+
+      // Read file content
+      const fileContent = await file.text();
+      console.log('File content length:', fileContent.length);
+
+      // Parse BibTeX
+      // Parse BibTeX
+      // Parse BibTeX
+      const parsedEntries = bibtexParse.toJSON(fileContent);
+
+      if (parsedEntries.length === 0) {
+        alert('No BibTeX entries found in file');
+        return;
+      }
+
+      // Save each entry to Firestore
+      console.log('Saving to Firestore...');
+      const savedBibs = [];
+
+      for (const entry of parsedEntries) {
+        const bibData = {
+          type: entry.entryType || null,
+          citationKey: entry.citationKey || null,
+          author: entry.entryTags?.AUTHOR || entry.entryTags?.author || null,
+          title: entry.entryTags?.TITLE || entry.entryTags?.title || null,
+          year: parseInt(entry.entryTags?.YEAR || entry.entryTags?.year) || null,
+          journal: entry.entryTags?.JOURNAL || entry.entryTags?.journal || null,
+          publisher: entry.entryTags?.PUBLISHER || entry.entryTags?.publisher || null,
+          booktitle: entry.entryTags?.BOOKTITLE || entry.entryTags?.booktitle || null,
+          volume: entry.entryTags?.VOLUME || entry.entryTags?.volume || null,
+          pages: entry.entryTags?.PAGES || entry.entryTags?.pages || null,
+          address: entry.entryTags?.ADDRESS || entry.entryTags?.address || null,
+          createdAt: serverTimestamp()
+        };
+
+        if (!bibData.type || !bibData.author || !bibData.title) {
+          console.log(`⚠️ Skipping entry (missing required fields):`, entry.citationKey || 'unknown');
+          continue; // Skip this entry
+        }
+
+
+        // Save to Firestore
+        const docRef = await addDoc(
+          collection(db, `users/${user.uid}/bibliographies`),
+          bibData
+        );
+
+        console.log(`✅ Saved: ${bibData.title}`);
+
+        // Add to local state
+        savedBibs.push({
+          id: Date.now() + Math.random(), // Temporary local ID
+          firestoreId: docRef.id,
+          ...bibData
+        });
+      }
+
+      // Update state
+      setSelectedBibs(prev => [...prev, ...savedBibs]);
       setUploadedFile(file);
-      console.log('File uploaded:', file.name);
-    } else {
-      alert('Please upload a .txt file');
+
+      alert(`Successfully uploaded ${savedBibs.length} bibliographies!`);
+      console.log(`✅ Upload complete: ${savedBibs.length} entries saved`);
+
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      alert('Failed to parse or upload file. Please check the file format.');
     }
   };
 
@@ -45,10 +128,19 @@ function Home() {
       alert('Please upload a BibTeX file or select from database');
       return;
     }
-    console.log('Generating HTML with format:', selectedFormat);
-    console.log('Using:', uploadedFile ? 'Uploaded file' : 'Selected bibs', selectedBibs);
-    navigate('/preview');
-    // Backend integration will go here later
+
+    console.log('=== GENERATING HTML ===');
+    console.log('Format:', selectedFormat);
+    console.log('Selected bibs:', selectedBibs);
+    console.log('=======================');
+
+    // Navigate to preview page with data
+    navigate('/preview', {
+      state: {
+        bibs: selectedBibs,
+        format: selectedFormat
+      }
+    });
   };
 
   const handleDeleteBib = (bibId) => {
@@ -57,7 +149,7 @@ function Home() {
 
   return (
     <>
-      <Navbar isLoggedIn={true} />
+      <Navbar isLoggedIn={auth.currentUser === null} />
 
       <div className="home-container">
         <div className="home-content">

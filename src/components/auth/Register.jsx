@@ -1,17 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-// NEW: Import fetchSignInMethodsForEmail
-import { 
-  createUserWithEmailAndPassword, 
-  GoogleAuthProvider, 
-  signInWithPopup,
-  fetchSignInMethodsForEmail
-} from 'firebase/auth';
-import { auth } from '../../firebase';
-
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../../firebase';
 import Button from '../other/Button';
 import Navbar from '../Navbar';
-
 import './Auth.css';
 
 function Register() {
@@ -22,7 +15,7 @@ function Register() {
     confirmPassword: ''
   });
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -33,89 +26,83 @@ function Register() {
   };
 
   const handleRegister = async () => {
+    // Clear previous errors
     setError('');
-    setSuccess('');
-    if (formData.password !== formData.confirmPassword) {
-      setError("ERROR: Passwords do not match! Please Try again,=.");
+
+    // Validation
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      setError('All fields are required');
       return;
     }
 
-    if (!formData.name || !formData.email || !formData.password) {
-      setError("ERROR: Please fill out all fields.");
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
 
     try {
+      // Step 1: Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
-      
-      setSuccess('Registration successful! Redirecting...');
-      setTimeout(() => navigate('/home'), 2000);
+
+      const user = userCredential.user;
+      console.log('✅ User created in Auth:', user.uid);
+
+      // Step 2: Create user document in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        name: formData.name,
+        email: formData.email,
+        createdAt: serverTimestamp()
+      });
+
+      console.log('✅ User document created in Firestore');
+
+      // Step 3: Navigate to home page
+      alert('Registration successful! Welcome!');
+      navigate('/home');
+
     } catch (error) {
-      console.error('Error registering:', error.message);
+      console.error('❌ Registration error:', error);
       
+      // Handle specific Firebase errors
       if (error.code === 'auth/email-already-in-use') {
-        try {
-          const methods = await fetchSignInMethodsForEmail(auth, formData.email);
-          if (methods.includes('google.com')) {
-            setError('This email is already registered with Google. Please log in with Google instead.');
-          } else {
-            setError('This email address is already in use.');
-          }
-        } catch (fetchError) {
-          setError('This email address is already in use.');
-        }
+        setError('This email is already registered');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Invalid email address');
       } else if (error.code === 'auth/weak-password') {
-        setError('Password is too weak. It should be at least 6 characters.');
+        setError('Password is too weak');
       } else {
-        setError(error.message);
+        setError('Registration failed. Please try again.');
       }
-    }
-  };
-
-  const handleGoogleRegister = async () => {
-    setError('');
-    setSuccess('');
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      console.log('User signed in/up with Google:', result.user);
-      setSuccess('Registration successful! Redirecting...');
-      setTimeout(() => navigate('/home'), 2000);
-    } catch (error) {
-      console.error('Error with Google sign-in:', error.message);
-      
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        try {
-          const email = error.customData.email;
-          const methods = await fetchSignInMethodsForEmail(auth, email);
-
-          if (methods.includes('password')) {
-            setError('This email is registered with a password. Please log in with your email and password to link your Google account.');
-          } else {
-            setError('An account already exists with this email. Please log in with your original method.');
-          }
-        } catch (fetchError) {
-          setError('Could not check sign-in methods. Please try again.');
-        }
-      } else {
-        setError(`Google Sign-In Error: ${error.message}`);
-      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <>
-      <Navbar isLoggedIn={false} />
+      <Navbar isLoggedIn={auth.currentUser === null} />
       <div className="auth-container">
         <div className="auth-card">
           <h2>Register</h2>
-          {error && <p className="auth-error">{error}</p>}
-          {success && <p className="auth-success">{success}</p>}
-          <form onSubmit={(e) => { e.preventDefault(); handleRegister(); }}>
+
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={(e) => e.preventDefault()}>
             <div className="form-group">
               <label htmlFor="name">Full Name</label>
               <input
@@ -148,7 +135,7 @@ function Register() {
                 type="password"
                 id="password"
                 name="password"
-                placeholder="Enter your password"
+                placeholder="Enter your password (min 6 characters)"
                 value={formData.password}
                 onChange={handleChange}
                 required
@@ -169,22 +156,11 @@ function Register() {
             </div>
 
             <Button 
-              text="Register" 
+              text={loading ? "Registering..." : "Register"}
               onClick={handleRegister}
               type="primary"
-              buttonType="submit"
             />
           </form>
-
-          <div className="auth-divider">
-            <span>OR</span>
-          </div>
-
-          <Button 
-            text="Sign up with Google" 
-            onClick={handleGoogleRegister}
-            type="secondary" 
-          />
 
           <p className="auth-footer">
             Already have an account? <Link to="/login">Login here</Link>

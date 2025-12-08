@@ -1,0 +1,129 @@
+.preview-container {
+  min-height: calc(100vh - 64px);
+  background-color: #fafafa;
+  padding: 40px 20px;
+}
+
+.preview-content {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.preview-content h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #1f2937;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.preview-card {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.preview-card h3 {
+  color: #2d6a4f;
+  margin-bottom: 20px;
+}
+
+.formatted-bibliography {
+  margin-top: 20px;
+}
+
+.citation-entry {
+  padding: 15px 0;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.citation-entry:last-child {
+  border-bottom: none;
+}
+
+.citation-entry em {
+  font-style: italic;
+}
+
+.preview-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.back-btn {
+  padding: 12px 24px;
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.back-btn:hover {
+  background-color: #4b5563;
+}
+
+/* HTML Code Section */
+.html-code-section {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.html-code-section h3 {
+  color: #2d6a4f;
+  margin-bottom: 10px;
+}
+
+.code-description {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.html-code-textarea {
+  width: 100%;
+  padding: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  background-color: #f9fafb;
+  color: #1f2937;
+  resize: vertical;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+
+.html-code-textarea:focus {
+  outline: none;
+  border-color: #2d6a4f;
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+}
+
+.copy-btn {
+  padding: 10px 20px;
+  background-color: #2d6a4f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.copy-btn:hover {
+  background-color: #52b788;
+}
